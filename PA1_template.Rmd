@@ -7,19 +7,71 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
-
+```{r}
+library(dplyr)
+library(ggplot2)
+data <- read.csv('activity.csv')
+data_no_na <- data[ with (data, { !(is.na(steps)) } ), ]
+```
 ## What is mean total number of steps taken per day?
+```{r}
+data_no_na_by_day <- group_by(data_no_na, date)
+steps_by_day <- summarise(data_no_na_by_day, total = sum(steps))
 
+hist(steps_by_day$total, main="Histogram of total number of steps taken per day", 
+     xlab="Total number of steps in a day")
 
+summary(steps_by_day)
+```
+#Mean total number of steps taken per day is 10766
 
 ## What is the average daily activity pattern?
+```{r}
+no_steps_by_interval <- aggregate(steps ~ interval, data, mean)
 
-
-
+plot(no_steps_by_interval$interval, no_steps_by_interval$steps, 
+     main="Average number of steps", xlab="Interval", 
+     ylab="Average number of steps")
+max_steps_row <- which.max(no_steps_by_interval$steps)
+no_steps_by_interval[max_steps_row, ]
+```
 ## Imputing missing values
+```{r}
+data_imputed <- data
+for (i in 1:nrow(data_imputed)) {
+  if (is.na(data_imputed$steps[i])) {
+    interval_value <- data_imputed$interval[i]
+    steps_value <- no_steps_by_interval[
+      no_steps_by_interval$interval == interval_value,]
+    data_imputed$steps[i] <- steps_value$steps
+  }
+}
 
+df_imputed_steps_by_day <- aggregate(steps ~ date, data_imputed, sum)
 
+hist(df_imputed_steps_by_day$steps, main="Histogram of total number of steps per day (imputed data)", 
+     xlab="Total number of steps in a day")
 
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+data_imputed['type_of_day'] <- weekdays(as.Date(data_imputed$date))
+data_imputed$type_of_day[data_imputed$type_of_day  %in% c('Saturday','Sunday') ] <- "weekend"
+data_imputed$type_of_day[data_imputed$type_of_day != "weekend"] <- "weekday"
+
+
+data_imputed$type_of_day <- as.factor(data_imputed$type_of_day)
+
+
+df_imputed_steps_by_interval <- aggregate(steps ~ interval + type_of_day, data_imputed, mean)
+
+
+qplot(interval, 
+      steps, 
+      data = df_imputed_steps_by_interval, 
+      geom=c("line"),
+      xlab = "Interval", 
+      ylab = "Number of steps", 
+      main = "") +
+  facet_wrap(~ type_of_day, ncol = 1)
+```
